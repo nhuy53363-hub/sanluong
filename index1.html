@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CNC 产能记录 / Năng Lực Sản Xuất CNC</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--s1:#161b27;--s2:#1e2535;--s3:#252d40;
+  --border:#2d3a55;--border2:#3a4a6a;
+  --green:#3ddc84;--yellow:#f9c846;--blue:#58a6ff;--red:#f47067;--purple:#bc8cff;
+  --text:#cdd9e5;--muted:#768390;--dim:#444c56;
+  --mono:'JetBrains Mono',monospace;--body:'Be Vietnam Pro',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--body);font-size:14px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--s1)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+.topbar{background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px}
+.topbar-logo{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green)}
+.topbar-sep{color:var(--dim)}
+.topbar-sub{font-size:12px;color:var(--muted)}
+.main{display:grid;grid-template-columns:190px 1fr;overflow:hidden}
+.sidebar{background:var(--s1);border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border:1px solid transparent}
+.nav-item:hover{background:var(--s2);color:var(--text)}
+.nav-item.active{background:var(--s3);color:var(--green);border-color:var(--border)}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.nav-divider{height:1px;background:var(--border);margin:6px 4px}
+.content{overflow-y:auto;padding:20px}
+.page{display:none}.page.active{display:block}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px}
+.card-title{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title::before{content:'';width:3px;height:12px;background:var(--green);border-radius:2px;flex-shrink:0}
+.fg{display:grid;gap:10px}
+.fg2{grid-template-columns:repeat(2,1fr)}
+.fg3{grid-template-columns:repeat(3,1fr)}
+.fg4{grid-template-columns:repeat(4,1fr)}
+.fg5{grid-template-columns:repeat(5,1fr)}
+.fg6{grid-template-columns:repeat(6,1fr)}
+.form-group label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;font-family:var(--mono);letter-spacing:.04em}
+.form-group input,.form-group select{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 10px;outline:none;transition:border-color .15s}
+.form-group input:focus,.form-group select:focus{border-color:var(--green)}
+.form-group input[readonly]{opacity:.5;cursor:not-allowed}
+.btn{font-family:var(--mono);font-size:12px;font-weight:600;padding:8px 16px;border-radius:7px;border:1px solid var(--border);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-green{background:var(--green);color:#0d1117;border-color:var(--green)}.btn-green:hover{opacity:.88}
+.btn-ghost{background:transparent;color:var(--text)}.btn-ghost:hover{background:var(--s2)}
+.btn-red{background:transparent;color:var(--red);border-color:#3d1a1a}.btn-red:hover{background:#1f0d0d}
+.btn-yellow{background:var(--yellow);color:#0d1117;border-color:var(--yellow)}.btn-yellow:hover{opacity:.88}
+.btn-blue{background:var(--blue);color:#0d1117;border-color:var(--blue)}.btn-blue:hover{opacity:.88}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+/* Table */
+.tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.tbl th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;background:var(--s2);white-space:nowrap}
+.tbl td{padding:8px 8px;border-bottom:1px solid #1e2535;vertical-align:middle;white-space:nowrap}
+.tbl tr:hover td{background:var(--s2)}
+.tbl .c-ngay{color:var(--yellow);font-weight:600}
+.tbl .c-ma{color:var(--blue)}
+.tbl .c-sl{color:var(--green);font-weight:600}
+.tbl .c-ten{color:var(--muted);font-size:11px}
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.stat-lbl{font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.07em}
+.stat-val{font-size:20px;font-family:var(--mono);font-weight:700;color:var(--green);margin-top:3px}
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#0d1117;font-family:var(--mono);font-size:12px;font-weight:700;padding:10px 18px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .3s;z-index:9999}
+.toast.show{opacity:1}
+.toast.err{background:var(--red);color:#fff}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+.filter-row{display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap}
+.badge{font-size:11px;font-family:var(--mono);padding:2px 8px;border-radius:4px;font-weight:600}
+.badge-cn{background:#0d2818;color:var(--green);border:1px solid #1a4a2a}
+.tbl-wrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="topbar-logo">CNC 产能记录</span>
+    <span class="topbar-sep">/</span>
+    <span class="topbar-sub">Năng Lực Sản Xuất CNC · Nhập liệu · Xuất Excel</span>
+  </div>
+  <div class="main">
+    <div class="sidebar">
+      <div class="nav-item active" onclick="goPage('nhap',this)"><span class="nav-icon">✏️</span>录入 / Nhập</div>
+      <div class="nav-item" onclick="goPage('lichsu',this)"><span class="nav-icon">📋</span>历史 / Lịch sử</div>
+      <div class="nav-divider"></div>
+      <div class="nav-item" onclick="goPage('nhanvien',this)"><span class="nav-icon">👥</span>员工 / Nhân viên</div>
+      <div class="nav-item" onclick="goPage('xuat',this)"><span class="nav-icon">📊</span>导出 / Xuất Excel</div>
+    </div>
+    <div class="content">
+
+      <!-- ══ PAGE NHẬP ══ -->
+      <div id="page-nhap" class="page active">
+        <div class="card">
+          <div class="card-title">基本信息 / Thông tin cơ bản</div>
+          <div class="fg fg3" style="margin-bottom:10px">
+            <div class="form-group"><label>部门 / Bộ phận</label>
+              <select id="i-bophan">
+                <option value="CNC铜">CNC铜</option>
+                <option value="CNC铁">CNC铁</option>
+                <option value="CNC其他">CNC khác</option>
+              </select>
+            </div>
+            <div class="form-group"><label>月 / Tháng</label><input type="month" id="i-thang"/></div>
+            <div class="form-group"><label>日期 / Ngày</label><input type="date" id="i-ngay"/></div>
+          </div>
+          <div class="fg fg3">
+            <div class="form-group"><label>工号 / Mã công nhân</label>
+              <select id="i-macn" onchange="onChangeCN()">
+                <option value="">-- Chọn --</option>
+              </select>
+            </div>
+            <div class="form-group"><label>工人姓名 / Tên công nhân</label><input type="text" id="i-tencn" readonly/></div>
+            <div class="form-group"><label>机台号 / Mã máy</label>
+              <select id="i-mamay">
+                <option value="">-- Chọn --</option>
+                <option value="101">101</option><option value="102">102</option>
+                <option value="111">111</option><option value="112">112</option>
+                <option value="113">113</option><option value="114">114</option>
+                <option value="115">115</option><option value="116">116</option>
+                <option value="117">117</option><option value="118">118</option>
+                <option value="121">121</option><option value="122">122</option>
+                <option value="123">123</option><option value="125">125</option>
+                <option value="126">126</option><option value="127">127</option>
+                <option value="128">128</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">产品信息 / Thông tin sản phẩm</div>
+          <div class="fg fg3" style="margin-bottom:10px">
+            <div class="form-group"><label>产品编码 / Mã SP</label><input type="text" id="i-masp" placeholder="JC004013BB"/></div>
+            <div class="form-group"><label>产品名称 / Tên SP</label><input type="text" id="i-tensp" placeholder="Tên sản phẩm"/></div>
+            <div class="form-group"><label>图号 / Mã bản vẽ</label><input type="text" id="i-tuho" placeholder="图号"/></div>
+          </div>
+          <div class="fg fg4">
+            <div class="form-group"><label>工序序号 / Mã công đoạn</label>
+              <select id="i-macd">
+                <option value="">-- Chọn --</option>
+                <option value="1-1">1-1</option><option value="2-1">2-1</option>
+                <option value="2-2">2-2</option><option value="3-1">3-1</option>
+                <option value="3-3">3-3</option>
+              </select>
+            </div>
+            <div class="form-group"><label>工序名称 / Tên công đoạn</label><input type="text" id="i-tencd" placeholder="Tên công đoạn"/></div>
+            <div class="form-group"><label>记录工人人数 / Số CN ghi</label><input type="number" id="i-solghi" min="0" placeholder="0"/></div>
+            <div class="form-group"><label>机器生产数量 / SL SX máy</label><input type="number" id="i-slmay" min="0" placeholder="0"/></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">时间 & 价格 / Thời gian & Giá</div>
+          <div class="fg fg5">
+            <div class="form-group"><label>单价 / Đơn giá</label><input type="number" id="i-dongia" min="0" step="0.01" placeholder="0"/></div>
+            <div class="form-group"><label>常规时间 / Giờ thường</label><input type="number" id="i-giothuo" min="0" step="0.5" placeholder="8"/></div>
+            <div class="form-group"><label>加班 / Tăng ca (giờ)</label><input type="number" id="i-tangca" min="0" step="0.5" placeholder="0"/></div>
+            <div class="form-group"><label>星期天 / Chủ nhật (giờ)</label><input type="number" id="i-chunhat" min="0" step="0.5" placeholder="0"/></div>
+            <div class="form-group"><label>停机时间 / Giờ máy ngưng</label><input type="number" id="i-ngung" min="0" step="0.5" placeholder="0"/></div>
+          </div>
+          <div class="fg fg2" style="margin-top:10px">
+            <div class="form-group"><label>规格 / Đặc điểm kỹ thuật</label><input type="text" id="i-dackiem" placeholder="Đặc điểm kỹ thuật"/></div>
+            <div class="form-group"><label>备注 / Ghi chú</label><input type="text" id="i-ghichu" placeholder="Ghi chú..."/></div>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-bottom:14px">
+          <button class="btn btn-green" onclick="luuBanGhi()">▶ Lưu bản ghi / 保存</button>
+          <button class="btn btn-ghost" onclick="resetForm()">↺ Làm mới / 清空</button>
+        </div>
+        <div id="preview-area"></div>
+      </div>
+
+      <!-- ══ PAGE LỊCH SỬ ══ -->
+      <div id="page-lichsu" class="page">
+        <div class="stats">
+          <div class="stat"><div class="stat-lbl">Bản ghi</div><div class="stat-val" id="st-banghi">0</div></div>
+          <div class="stat"><div class="stat-lbl">Tháng này</div><div class="stat-val" id="st-thang">0</div></div>
+          <div class="stat"><div class="stat-val" id="st-sl" style="font-size:16px">0</div><div class="stat-lbl">Tổng SL SX</div></div>
+          <div class="stat"><div class="stat-val" id="st-tt" style="font-size:16px">0</div><div class="stat-lbl">Tổng tiền</div></div>
+        </div>
+        <div class="card">
+          <div class="filter-row">
+            <div class="form-group"><label>Lọc tháng</label><input type="month" id="f-thang" style="width:160px"/></div>
+            <div class="form-group"><label>Mã CN</label><input type="text" id="f-macn" style="width:120px" placeholder="TM..."/></div>
+            <button class="btn btn-ghost" onclick="loadLS()">🔍 Lọc</button>
+            <button class="btn btn-ghost" onclick="clearFilter()">✕ Xóa lọc</button>
+            <button class="btn btn-red" onclick="xoaDaChon()" style="margin-left:auto">🗑 Xóa đã chọn</button>
+          </div>
+          <div class="tbl-wrap"><div id="ls-area"></div></div>
+        </div>
+      </div>
+
+      <!-- ══ PAGE NHÂN VIÊN ══ -->
+      <div id="page-nhanvien" class="page">
+        <div class="card">
+          <div class="card-title">添加员工 / Thêm nhân viên</div>
+          <div class="fg fg4" style="margin-bottom:12px">
+            <div class="form-group"><label>Mã thẻ / 工号</label><input type="text" id="nv-ma" placeholder="TM0001"/></div>
+            <div class="form-group"><label>Họ tên / 姓名</label><input type="text" id="nv-ten" placeholder="Nguyễn Văn A"/></div>
+            <div class="form-group"><label>Bộ phận / 部门</label><input type="text" id="nv-bp" placeholder="Đứng máy"/></div>
+            <div class="form-group"><label>Chức vụ / 职务</label><input type="text" id="nv-cv" placeholder="Công nhân"/></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-green" onclick="themNV()">＋ Thêm</button>
+            <button class="btn btn-red" onclick="xoaNV()">🗑 Xóa đã chọn</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Danh sách / 员工列表</div>
+          <div class="tbl-wrap"><div id="nv-area"></div></div>
+        </div>
+      </div>
+
+      <!-- ══ PAGE XUẤT ══ -->
+      <div id="page-xuat" class="page">
+        <div class="card">
+          <div class="card-title">导出Excel / Xuất file Excel</div>
+          <div class="fg fg3" style="margin-bottom:14px">
+            <div class="form-group"><label>Chọn tháng / 选择月份</label><select id="x-thang" style="width:100%"></select></div>
+            <div class="form-group"><label>Bộ phận / 部门</label>
+              <select id="x-bophan">
+                <option value="">Tất cả</option>
+                <option value="CNC铜">CNC铜</option>
+                <option value="CNC铁">CNC铁</option>
+              </select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end">
+              <button class="btn btn-yellow" style="width:100%" onclick="xuatExcel()">⬇ Xuất Excel</button>
+            </div>
+          </div>
+          <div id="x-preview"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ DB ══
+const KEY='cnc_db_v1';
+function loadDB(){return JSON.parse(localStorage.getItem(KEY)||'{"nhanvien":[],"banghi":[]}')}
+function saveDB(db){localStorage.setItem(KEY,JSON.stringify(db))}
+
+// Nhân viên mặc định từ file Excel
+const NV_DEFAULT=[
+  {ma:'TM0005',ten:'Nguyễn Văn Thọ',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0016',ten:'Ngô Thị Thúy',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0036',ten:'Dương Thị Hương',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0037',ten:'Nguyễn Văn Phong',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0043',ten:'Phạm Thị Bích Tần',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0060',ten:'Mạc Văn Hậu',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0061',ten:'Nguyễn Thị Kim Xuyến',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0062',ten:'Phạm Thị Hiền',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0063',ten:'Nguyễn Thị Thoa',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0072',ten:'Trần Thị Hoa',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0073',ten:'Phạm Thị Liên',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0088',ten:'Nguyễn Thị Hằng',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0101',ten:'Trần Văn Tùng',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0111',ten:'Hoàng Thị Lan',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0120',ten:'Vũ Thị Mai',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0150',ten:'Đặng Văn Nam',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0200',ten:'Lê Thị Nhung',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0312',ten:'Nguyễn Thị Hoa',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0353',ten:'Phạm Huy Trung',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0386',ten:'Lê Thành Chung',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+  {ma:'TM0391',ten:'Vương Văn Chiến',bp:'Đứng máy',cv:'Công nhân thao tác máy'},
+];
+
+function initDB(){
+  let db=loadDB();
+  if(!db.nhanvien.length){db.nhanvien=NV_DEFAULT;saveDB(db);}
+  return db;
+}
+
+// ══ NAV ══
+function goPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(el)el.classList.add('active');
+  if(id==='lichsu')loadLS();
+  if(id==='nhanvien')loadNVPage();
+  if(id==='xuat')loadXuatMonths();
+}
+
+// ══ TOAST ══
+function toast(msg,err=false){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast show'+(err?' err':'');
+  setTimeout(()=>el.className='toast',2500);
+}
+
+// ══ INIT FORM ══
+function initForm(){
+  const db=initDB();
+  const sel=document.getElementById('i-macn');
+  sel.innerHTML='<option value="">-- Chọn CN --</option>';
+  db.nhanvien.forEach(nv=>{
+    sel.innerHTML+=`<option value="${nv.ma}">${nv.ma} - ${nv.ten}</option>`;
+  });
+  const today=new Date();
+  document.getElementById('i-ngay').value=today.toISOString().slice(0,10);
+  document.getElementById('i-thang').value=today.toISOString().slice(0,7);
+}
+
+function onChangeCN(){
+  const ma=document.getElementById('i-macn').value;
+  const db=loadDB();
+  const nv=db.nhanvien.find(n=>n.ma===ma);
+  document.getElementById('i-tencn').value=nv?nv.ten:'';
+}
+
+// ══ LƯU ══
+function luuBanGhi(){
+  const v=id=>document.getElementById(id).value.trim();
+  const n=id=>parseFloat(document.getElementById(id).value)||0;
+  if(!v('i-ngay')){toast('Chưa chọn ngày!',true);return}
+  if(!v('i-macn')){toast('Chưa chọn công nhân!',true);return}
+
+  const slmay=n('i-slmay');
+  const dongia=n('i-dongia');
+  const rec={
+    id:Date.now(),
+    bophan:v('i-bophan'), thang:v('i-thang'), ngay:v('i-ngay'),
+    maCN:v('i-macn'), tenCN:v('i-tencn'), maMay:v('i-mamay'),
+    maSP:v('i-masp'), tenSP:v('i-tensp'), tuHo:v('i-tuho'),
+    maCongDoan:v('i-macd'), tenCongDoan:v('i-tencd'),
+    soLGhi:n('i-solghi'), slMay:slmay,
+    donGia:dongia, soTien:+(slmay*dongia).toFixed(2),
+    gioThuong:n('i-giothuo'), tangCa:n('i-tangca'),
+    chuNhat:n('i-chunhat'), gioNgung:n('i-ngung'),
+    dacKiem:v('i-dackiem'), ghiChu:v('i-ghichu')
+  };
+
+  const db=loadDB();
+  db.banghi.push(rec);
+  db.banghi.sort((a,b)=>a.ngay.localeCompare(b.ngay));
+  saveDB(db);
+
+  // Preview
+  document.getElementById('preview-area').innerHTML=`
+    <div class="card">
+      <div class="card-title">✓ Đã lưu bản ghi</div>
+      <div style="font-family:var(--mono);font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px;color:var(--muted)">
+        <span>Ngày: <b style="color:var(--yellow)">${rec.ngay}</b></span>
+        <span>Công nhân: <b style="color:var(--blue)">${rec.maCN} - ${rec.tenCN}</b></span>
+        <span>Máy: <b style="color:var(--text)">${rec.maMay}</b></span>
+        <span>Mã SP: <b style="color:var(--text)">${rec.maSP}</b></span>
+        <span>SL SX: <b style="color:var(--green)">${rec.slMay.toLocaleString('vi')}</b></span>
+        <span>Tổng tiền: <b style="color:var(--green)">${rec.soTien.toLocaleString('vi')}</b></span>
+      </div>
+    </div>`;
+  toast('✓ Đã lưu ngày '+rec.ngay);
+}
+
+function resetForm(){
+  ['i-masp','i-tensp','i-tuho','i-tencd','i-solghi','i-slmay',
+   'i-dongia','i-giothuo','i-tangca','i-chunhat','i-ngung','i-dackiem','i-ghichu']
+    .forEach(id=>document.getElementById(id).value='');
+  document.getElementById('i-macn').value='';
+  document.getElementById('i-tencn').value='';
+  document.getElementById('i-macd').value='';
+  document.getElementById('i-mamay').value='';
+  document.getElementById('preview-area').innerHTML='';
+}
+
+// ══ LỊCH SỬ ══
+function loadLS(){
+  const db=loadDB();
+  const ft=document.getElementById('f-thang').value;
+  const fma=document.getElementById('f-macn').value.trim().toLowerCase();
+  const thisM=new Date().toISOString().slice(0,7);
+
+  let recs=db.banghi;
+  if(ft) recs=recs.filter(r=>r.ngay.startsWith(ft));
+  if(fma) recs=recs.filter(r=>r.maCN.toLowerCase().includes(fma));
+
+  const thisRecs=db.banghi.filter(r=>r.ngay.startsWith(thisM));
+  document.getElementById('st-banghi').textContent=db.banghi.length;
+  document.getElementById('st-thang').textContent=thisRecs.length;
+  document.getElementById('st-sl').textContent=recs.reduce((s,r)=>s+r.slMay,0).toLocaleString('vi');
+  document.getElementById('st-tt').textContent=recs.reduce((s,r)=>s+r.soTien,0).toLocaleString('vi');
+
+  const area=document.getElementById('ls-area');
+  if(!recs.length){area.innerHTML='<div class="empty">Không có dữ liệu</div>';return}
+
+  let h=`<table class="tbl"><thead><tr>
+    <th><input type="checkbox" id="chk-all" onchange="document.querySelectorAll('.chk-r').forEach(c=>c.checked=this.checked)"/></th>
+    <th>Ngày</th><th>Bộ phận</th><th>Mã CN</th><th>Tên CN</th><th>Máy</th>
+    <th>Mã SP</th><th>Tên SP</th><th>Công đoạn</th><th>SL ghi</th><th>SL máy</th>
+    <th>Đơn giá</th><th>Tổng tiền</th><th>G.thường</th><th>Tăng ca</th><th>CN</th><th>Ngưng</th><th>Ghi chú</th>
+  </tr></thead><tbody>`;
+  [...recs].reverse().forEach(r=>{
+    h+=`<tr>
+      <td><input type="checkbox" class="chk-r" value="${r.id}"/></td>
+      <td class="c-ngay">${r.ngay}</td>
+      <td><span class="badge badge-cn">${r.bophan}</span></td>
+      <td class="c-ma">${r.maCN}</td><td class="c-ten">${r.tenCN}</td>
+      <td>${r.maMay}</td><td class="c-ma">${r.maSP}</td>
+      <td class="c-ten">${r.tenSP}</td><td>${r.maCongDoan}</td>
+      <td>${r.soLGhi}</td><td class="c-sl">${r.slMay.toLocaleString('vi')}</td>
+      <td>${r.donGia}</td><td class="c-sl">${r.soTien.toLocaleString('vi')}</td>
+      <td>${r.gioThuong}</td><td>${r.tangCa}</td><td>${r.chuNhat}</td>
+      <td>${r.gioNgung}</td><td class="c-ten">${r.ghiChu}</td>
+    </tr>`;
+  });
+  h+=`</tbody></table>`;
+  area.innerHTML=h;
+}
+
+function clearFilter(){
+  document.getElementById('f-thang').value='';
+  document.getElementById('f-macn').value='';
+  loadLS();
+}
+
+function xoaDaChon(){
+  const ids=[...document.querySelectorAll('.chk-r:checked')].map(c=>+c.value);
+  if(!ids.length){toast('Chưa chọn dòng nào!',true);return}
+  if(!confirm(`Xóa ${ids.length} bản ghi?`))return;
+  const db=loadDB();
+  db.banghi=db.banghi.filter(r=>!ids.includes(r.id));
+  saveDB(db);loadLS();
+  toast(`✓ Đã xóa ${ids.length} bản ghi`);
+}
+
+// ══ NHÂN VIÊN ══
+function loadNVPage(){
+  const db=loadDB();
+  const area=document.getElementById('nv-area');
+  if(!db.nhanvien.length){area.innerHTML='<div class="empty">Chưa có nhân viên</div>';return}
+  let h=`<table class="tbl"><thead><tr>
+    <th><input type="checkbox" onchange="document.querySelectorAll('.chk-nv').forEach(c=>c.checked=this.checked)"/></th>
+    <th>Mã thẻ</th><th>Họ tên</th><th>Bộ phận</th><th>Chức vụ</th>
+  </tr></thead><tbody>`;
+  db.nhanvien.forEach(nv=>{
+    h+=`<tr><td><input type="checkbox" class="chk-nv" value="${nv.ma}"/></td>
+      <td class="c-ma">${nv.ma}</td><td>${nv.ten}</td>
+      <td class="c-ten">${nv.bp}</td><td class="c-ten">${nv.cv||''}</td></tr>`;
+  });
+  h+=`</tbody></table>`;
+  area.innerHTML=h;
+}
+
+function themNV(){
+  const ma=document.getElementById('nv-ma').value.trim();
+  const ten=document.getElementById('nv-ten').value.trim();
+  const bp=document.getElementById('nv-bp').value.trim();
+  const cv=document.getElementById('nv-cv').value.trim();
+  if(!ma){toast('Nhập mã thẻ!',true);return}
+  const db=loadDB();
+  if(db.nhanvien.find(n=>n.ma===ma)){toast('Mã đã tồn tại!',true);return}
+  db.nhanvien.push({ma,ten,bp,cv});
+  saveDB(db);
+  loadNVPage();initForm();
+  ['nv-ma','nv-ten','nv-bp','nv-cv'].forEach(id=>document.getElementById(id).value='');
+  toast('✓ Đã thêm '+ma);
+}
+
+function xoaNV(){
+  const mas=[...document.querySelectorAll('.chk-nv:checked')].map(c=>c.value);
+  if(!mas.length){toast('Chưa chọn!',true);return}
+  if(!confirm(`Xóa ${mas.length} nhân viên?`))return;
+  const db=loadDB();
+  db.nhanvien=db.nhanvien.filter(n=>!mas.includes(n.ma));
+  saveDB(db);loadNVPage();initForm();
+  toast(`✓ Đã xóa ${mas.length} nhân viên`);
+}
+
+// ══ XUẤT EXCEL ══
+function loadXuatMonths(){
+  const db=loadDB();
+  const months=[...new Set(db.banghi.map(r=>r.ngay.slice(0,7)))].sort().reverse();
+  const sel=document.getElementById('x-thang');
+  sel.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('')||'<option value="">-- Không có dữ liệu --</option>';
+}
+
+function xuatExcel(){
+  const thang=document.getElementById('x-thang').value;
+  const bp=document.getElementById('x-bophan').value;
+  if(!thang){toast('Chọn tháng trước!',true);return}
+
+  const db=loadDB();
+  let recs=db.banghi.filter(r=>r.ngay.startsWith(thang));
+  if(bp) recs=recs.filter(r=>r.bophan===bp);
+  if(!recs.length){toast('Không có dữ liệu!',true);return}
+
+  const wb=XLSX.utils.book_new();
+
+  // ── Sheet 1: CNC产能记录 (giống bảng gốc) ──
+  const headers=[
+    '部门 Bộ phận','Tháng','Ngày日期','Mã công nhân工号','Tên công nhân工人姓名',
+    'Mã máy 机台号','Mã sản phẩm产品编码','Tên sản phẩm产品名称','图号',
+    'Số lượng công nhân ghi记录工人人数2','机器生产数量Số lượng sản xuất của máy',
+    'đơn giá/单价','Số lượng/金额',
+    'Thời gian thường (giờ)常规时间（小时）','Tăng ca (giờ)加班',
+    'Chủ nhật (giờ)星期天（小时）','Thời gian máy ngưng hoạt động机器停机时间',
+    'Mã Công Đoạng工序序号','Tên Công đoạn工序序号',
+    '规格/Đặc điểm kĩ thuật','Ghi chú备注'
+  ];
+
+  const data=[headers];
+  recs.forEach(r=>{
+    const [y,m,d]=r.ngay.split('-');
+    data.push([
+      r.bophan, `${parseInt(m)}月`, r.ngay,
+      r.maCN, r.tenCN, r.maMay, r.maSP, r.tenSP, r.tuHo||'',
+      r.soLGhi, r.slMay, r.donGia, r.soTien,
+      r.gioThuong, r.tangCa, r.chuNhat, r.gioNgung,
+      r.maCongDoan, r.tenCongDoan||'',
+      r.dacKiem||'', r.ghiChu||''
+    ]);
+  });
+
+  // Dòng tổng
+  data.push([
+    'TỔNG','','','','','','','','','',
+    recs.reduce((s,r)=>s+r.slMay,0),'',
+    recs.reduce((s,r)=>s+r.soTien,0),
+    recs.reduce((s,r)=>s+r.gioThuong,0),
+    recs.reduce((s,r)=>s+r.tangCa,0),
+    recs.reduce((s,r)=>s+r.chuNhat,0),
+    recs.reduce((s,r)=>s+r.gioNgung,0),
+    '','','',''
+  ]);
+
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[8,6,12,10,18,8,14,20,10,10,12,8,12,10,8,8,10,8,16,16,16].map(w=>({wch:w}));
+  ws['!rows']=[{hpt:30}];
+  XLSX.utils.book_append_sheet(wb,ws,'CNC产能记录');
+
+  // ── Sheet 2: Tổng hợp theo CN ──
+  const byNV={};
+  recs.forEach(r=>{
+    if(!byNV[r.maCN]) byNV[r.maCN]={ma:r.maCN,ten:r.tenCN,sl:0,tien:0,gthuong:0,tangca:0,chunhat:0,days:new Set()};
+    byNV[r.maCN].sl+=r.slMay;
+    byNV[r.maCN].tien+=r.soTien;
+    byNV[r.maCN].gthuong+=r.gioThuong;
+    byNV[r.maCN].tangca+=r.tangCa;
+    byNV[r.maCN].chunhat+=r.chuNhat;
+    byNV[r.maCN].days.add(r.ngay);
+  });
+  const ws2Data=[['Mã CN','Tên CN','Số ngày','SL SX','Tổng tiền','Giờ thường','Tăng ca','Chủ nhật']];
+  Object.values(byNV).forEach(n=>{
+    ws2Data.push([n.ma,n.ten,n.days.size,n.sl,n.tien,n.gthuong,n.tangca,n.chunhat]);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(ws2Data);
+  ws2['!cols']=[10,18,10,12,14,12,10,10].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb,ws2,'Tổng hợp CN');
+
+  XLSX.writeFile(wb,`CNC_${thang}${bp?'_'+bp:''}.xlsx`);
+  toast(`✓ Đã xuất CNC_${thang}.xlsx`);
+}
+
+// ══ INIT ══
+initDB();
+initForm();
+</script>
+</body>
+</html>
