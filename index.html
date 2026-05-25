@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>产量管理 / Quản Lý Sản Lượng</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--s1:#161b27;--s2:#1e2535;--s3:#252d40;
+  --border:#2d3a55;--border2:#3a4a6a;
+  --green:#3ddc84;--yellow:#f9c846;--blue:#58a6ff;--red:#f47067;--purple:#bc8cff;
+  --text:#cdd9e5;--muted:#768390;--dim:#444c56;
+  --mono:'JetBrains Mono',monospace;--body:'Be Vietnam Pro',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--body);font-size:14px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--s1)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* Layout */
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+.topbar{background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px}
+.topbar-logo{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green);letter-spacing:.05em}
+.topbar-sep{color:var(--dim)}
+.topbar-sub{font-size:12px;color:var(--muted)}
+.main{display:grid;grid-template-columns:200px 1fr;overflow:hidden}
+
+/* Sidebar */
+.sidebar{background:var(--s1);border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border:1px solid transparent;font-family:var(--body)}
+.nav-item:hover{background:var(--s2);color:var(--text)}
+.nav-item.active{background:var(--s3);color:var(--green);border-color:var(--border)}
+.nav-item .icon{font-size:16px;width:20px;text-align:center}
+.nav-divider{height:1px;background:var(--border);margin:8px 4px}
+
+/* Content */
+.content{overflow-y:auto;padding:20px}
+.page{display:none}.page.active{display:block}
+
+/* Cards */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px}
+.card-title{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title::before{content:'';display:inline-block;width:3px;height:12px;background:var(--green);border-radius:2px}
+
+/* Form */
+.form-grid{display:grid;gap:12px}
+.form-grid-2{grid-template-columns:repeat(2,1fr)}
+.form-grid-3{grid-template-columns:repeat(3,1fr)}
+.form-grid-4{grid-template-columns:repeat(4,1fr)}
+.form-group label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;font-family:var(--mono);letter-spacing:.05em}
+.form-group input,.form-group select{
+  width:100%;background:var(--s2);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-family:var(--mono);font-size:13px;padding:8px 10px;
+  outline:none;transition:border-color .15s
+}
+.form-group input:focus,.form-group select:focus{border-color:var(--green)}
+
+/* Buttons */
+.btn{font-family:var(--mono);font-size:12px;font-weight:600;padding:8px 16px;border-radius:7px;border:1px solid var(--border);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-green{background:var(--green);color:#0d1117;border-color:var(--green)}.btn-green:hover{opacity:.88}
+.btn-ghost{background:transparent;color:var(--text)}.btn-ghost:hover{background:var(--s2)}
+.btn-red{background:transparent;color:var(--red);border-color:#3d1a1a}.btn-red:hover{background:#1f0d0d}
+.btn-yellow{background:var(--yellow);color:#0d1117;border-color:var(--yellow)}.btn-yellow:hover{opacity:.88}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* NV Table */
+.nv-header{display:grid;grid-template-columns:90px 1fr 110px 90px 30px;gap:8px;font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:0 4px;margin-bottom:6px}
+.nv-row{display:grid;grid-template-columns:90px 1fr 110px 90px 30px;gap:8px;margin-bottom:6px;align-items:center}
+.nv-row input{margin:0}
+.badge{font-size:11px;font-family:var(--mono);padding:3px 8px;border-radius:4px;font-weight:600;text-align:center}
+.badge-full{background:#0d2818;color:var(--green);border:1px solid #1a4a2a}
+.badge-part{background:#2d1f00;color:var(--yellow);border:1px solid #4a3800}
+.btn-del{background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:0 4px;transition:color .15s}
+.btn-del:hover{color:var(--red)}
+.btn-add-row{width:100%;background:transparent;border:1px dashed var(--border);border-radius:6px;color:var(--muted);font-family:var(--mono);font-size:12px;padding:7px;cursor:pointer;transition:all .15s;margin-top:4px}
+.btn-add-row:hover{border-color:var(--green);color:var(--green)}
+
+/* Preview Result */
+.result-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.result-table th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;padding:6px 10px;border-bottom:1px solid var(--border);text-align:right}
+.result-table th:first-child{text-align:left}
+.result-table td{padding:8px 10px;border-bottom:1px solid var(--s2);text-align:right}
+.result-table td:first-child{text-align:left;color:var(--yellow);font-weight:600}
+.result-table td:nth-child(2){color:var(--muted)}
+.result-table td:last-child{color:var(--green);font-weight:600}
+.result-table tr:last-child td{border-bottom:none}
+.result-table .total-row td{border-top:1px solid var(--border);color:var(--muted);font-size:11px}
+.result-table .total-row td:last-child{color:var(--green)}
+
+/* History Table */
+.hist-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.hist-table th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;background:var(--s2)}
+.hist-table td{padding:9px 10px;border-bottom:1px solid var(--s2);vertical-align:middle}
+.hist-table tr:hover td{background:var(--s2)}
+.hist-table .td-ngay{color:var(--yellow);font-weight:600}
+.hist-table .td-sl{color:var(--green);font-weight:600}
+.hist-table .td-don{color:var(--blue)}
+
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat-box{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
+.stat-val{font-size:22px;font-family:var(--mono);font-weight:700;color:var(--green);margin-top:2px}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#0d1117;font-family:var(--mono);font-size:12px;font-weight:700;padding:10px 18px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .3s;z-index:9999}
+.toast.show{opacity:1}
+.toast.error{background:var(--red);color:#fff}
+
+/* Filter row */
+.filter-row{display:flex;gap:8px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap}
+.filter-row .form-group{flex:0 0 auto}
+
+/* Empty */
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px;width:480px;max-width:95vw}
+.modal-title{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green);margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Topbar -->
+  <div class="topbar">
+    <span class="topbar-logo">产量管理系统</span>
+    <span class="topbar-sep">/</span>
+    <span class="topbar-sub">Quản Lý Sản Lượng • Lưu local • Xuất Excel</span>
+  </div>
+
+  <div class="main">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="nav-item active" onclick="goPage('nhap',this)">
+        <span class="icon">✏️</span>录入 / Nhập liệu
+      </div>
+      <div class="nav-item" onclick="goPage('lichsu',this)">
+        <span class="icon">📋</span>历史 / Lịch sử
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-item" onclick="goPage('nhanvien',this)">
+        <span class="icon">👥</span>员工 / Nhân viên
+      </div>
+      <div class="nav-item" onclick="goPage('xuat',this)">
+        <span class="icon">📊</span>导出 / Xuất Excel
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- PAGE: NHẬP -->
+      <div id="page-nhap" class="page active">
+        <div class="card">
+          <div class="card-title">订单信息 / Thông tin đơn hàng</div>
+          <div class="form-grid form-grid-4" style="margin-bottom:10px">
+            <div class="form-group"><label>日期 / Ngày</label><input type="date" id="inp-ngay"/></div>
+            <div class="form-group"><label>订单号 / Mã đơn</label><input type="text" id="inp-madon" placeholder="AV26-W065"/></div>
+            <div class="form-group"><label>产品编码 / Mã SP</label><input type="text" id="inp-masp" placeholder="ZU02SF06SGS"/></div>
+            <div class="form-group"><label>名称 / Tên sản phẩm</label><input type="text" id="inp-tensp" placeholder="美式1/4T母接 1/4F"/></div>
+          </div>
+          <div class="form-grid form-grid-4">
+            <div class="form-group"><label>数量 / Số lượng</label><input type="number" id="inp-sl" placeholder="5323" min="0"/></div>
+            <div class="form-group"><label>单价 / Đơn giá</label><input type="number" id="inp-dg" placeholder="0" min="0" step="0.01"/></div>
+            <div class="form-group"><label>时间(h) / Ca (tiếng)</label><input type="number" id="inp-tg" value="11" min="1" max="24" step="0.5"/></div>
+            <div class="form-group"><label>人数 / Số người</label><input type="number" id="inp-snguoi" value="6" readonly style="opacity:.6"/></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">员工工时 / Giờ làm từng người</div>
+          <div class="nv-header">
+            <span>Mã / 编码</span><span>Tên / 姓名</span><span>Giờ làm / 工时</span><span>Trạng thái</span><span></span>
+          </div>
+          <div id="nv-list"></div>
+          <button class="btn-add-row" onclick="addNvRow()">＋ Thêm người / 添加员工</button>
+        </div>
+
+        <div class="btn-row" style="margin-bottom:14px">
+          <button class="btn btn-green" onclick="tinhVaLuu()">▶ Tính & Lưu / 计算保存</button>
+          <button class="btn btn-ghost" onclick="resetNhap()">↺ Làm mới / 清空</button>
+        </div>
+
+        <div id="preview-area"></div>
+      </div>
+
+      <!-- PAGE: LỊCH SỬ -->
+      <div id="page-lichsu" class="page">
+        <div class="stats-row">
+          <div class="stat-box"><div class="stat-label">Số ngày</div><div class="stat-val" id="stat-ngay">0</div></div>
+          <div class="stat-box"><div class="stat-label">Số đơn</div><div class="stat-val" id="stat-don">0</div></div>
+          <div class="stat-box"><div class="stat-label">Tổng SL tháng này</div><div class="stat-val" id="stat-sl">0</div></div>
+          <div class="stat-box"><div class="stat-label">Tổng tiền</div><div class="stat-val" id="stat-tt">0</div></div>
+        </div>
+        <div class="card">
+          <div class="filter-row">
+            <div class="form-group"><label>Lọc tháng / 筛选月份</label><input type="month" id="filter-thang" style="width:160px"/></div>
+            <button class="btn btn-ghost" onclick="loadLichSu()">🔍 Lọc</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('filter-thang').value='';loadLichSu()">✕ Bỏ lọc</button>
+            <button class="btn btn-red" onclick="xoaDaChon()" style="margin-left:auto">🗑 Xóa đã chọn</button>
+          </div>
+          <div id="hist-area"></div>
+        </div>
+      </div>
+
+      <!-- PAGE: NHÂN VIÊN -->
+      <div id="page-nhanvien" class="page">
+        <div class="card">
+          <div class="card-title">添加员工 / Thêm nhân viên mới</div>
+          <div class="form-grid form-grid-3" style="margin-bottom:12px">
+            <div class="form-group"><label>Mã / 编码</label><input type="text" id="nv-ma" placeholder="209"/></div>
+            <div class="form-group"><label>Tên / 姓名</label><input type="text" id="nv-ten" placeholder="Nguyễn Văn A"/></div>
+            <div class="form-group"><label>Thứ tự / 顺序</label><input type="number" id="nv-tt" placeholder="1" min="1"/></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-green" onclick="themNV()">＋ Thêm / 添加</button>
+            <button class="btn btn-red" onclick="xoaNVDaChon()">🗑 Xóa đã chọn</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Danh sách nhân viên / 员工列表</div>
+          <div id="nv-manage-area"></div>
+        </div>
+      </div>
+
+      <!-- PAGE: XUẤT EXCEL -->
+      <div id="page-xuat" class="page">
+        <div class="card">
+          <div class="card-title">导出Excel / Xuất file Excel</div>
+          <div class="filter-row">
+            <div class="form-group"><label>Chọn tháng / 选择月份</label><select id="xuat-thang" style="width:200px"></select></div>
+            <button class="btn btn-yellow" onclick="xuatExcel()" style="margin-top:18px">⬇ Xuất Excel / 导出</button>
+          </div>
+          <div id="xuat-preview"></div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  DATABASE (localStorage)
+// ══════════════════════════════════════════════
+const DB_KEY = 'sldb_v2';
+function loadDB(){ return JSON.parse(localStorage.getItem(DB_KEY)||'{"nhanvien":[],"donhang":[]}') }
+function saveDB(db){ localStorage.setItem(DB_KEY, JSON.stringify(db)) }
+
+function initDB(){
+  let db = loadDB();
+  if(db.nhanvien.length===0){
+    db.nhanvien = [
+      {ma:'209',ten:'NV 209',tt:1},{ma:'256',ten:'NV 256',tt:2},
+      {ma:'160',ten:'NV 160',tt:3},{ma:'139',ten:'NV 139',tt:4},
+      {ma:'125',ten:'NV 125',tt:5},{ma:'365',ten:'NV 365',tt:6}
+    ];
+    saveDB(db);
+  }
+  return db;
+}
+
+// ══════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════
+function goPage(id, el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+  if(id==='lichsu') loadLichSu();
+  if(id==='nhanvien') loadNVManage();
+  if(id==='xuat') loadXuatMonths();
+}
+
+// ══════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════
+function toast(msg, isErr=false){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='toast show'+(isErr?' error':'');
+  setTimeout(()=>el.className='toast',2500);
+}
+
+// ══════════════════════════════════════════════
+//  PAGE NHẬP - NV ROWS
+// ══════════════════════════════════════════════
+let nvRows=[];
+
+function loadNvRowsFromDB(){
+  const db=loadDB();
+  const list=document.getElementById('nv-list');
+  list.innerHTML=''; nvRows=[];
+  db.nhanvien.sort((a,b)=>a.tt-b.tt).forEach(nv=>addNvRow(nv.ma,nv.ten,11));
+}
+
+function addNvRow(ma='',ten='',gio=11){
+  const list=document.getElementById('nv-list');
+  const div=document.createElement('div');
+  div.className='nv-row';
+  const tg=parseFloat(document.getElementById('inp-tg').value)||11;
+  const badge=gio>=tg?'<span class="badge badge-full">Đủ ca</span>':'<span class="badge badge-part">Thiếu ca</span>';
+  div.innerHTML=`
+    <input type="text" value="${ma}" placeholder="Mã" style="text-align:center"/>
+    <input type="text" value="${ten}" placeholder="Tên"/>
+    <input type="number" value="${gio}" min="0.5" max="24" step="0.5" onchange="updateBadge(this)" oninput="updateBadge(this)"/>
+    <div class="badge-wrap">${badge}</div>
+    <button class="btn-del" onclick="this.closest('.nv-row').remove();updateSnguoi()">✕</button>`;
+  list.appendChild(div);
+  nvRows.push(div);
+  updateSnguoi();
+}
+
+function updateBadge(inp){
+  const row=inp.closest('.nv-row');
+  const tg=parseFloat(document.getElementById('inp-tg').value)||11;
+  const v=parseFloat(inp.value)||0;
+  row.querySelector('.badge-wrap').innerHTML=v>=tg
+    ?'<span class="badge badge-full">Đủ ca</span>'
+    :'<span class="badge badge-part">Thiếu ca</span>';
+}
+
+function updateSnguoi(){
+  document.getElementById('inp-snguoi').value=document.querySelectorAll('#nv-list .nv-row').length;
+}
+
+document.getElementById('inp-tg').addEventListener('input',()=>{
+  document.querySelectorAll('#nv-list .nv-row input[type=number]').forEach(i=>updateBadge(i));
+});
+
+function getPeople(){
+  return [...document.querySelectorAll('#nv-list .nv-row')].map(row=>{
+    const ins=row.querySelectorAll('input');
+    return {ma:ins[0].value.trim()||'?', ten:ins[1].value.trim(), gio:parseFloat(ins[2].value)||0};
+  });
+}
+
+// ══════════════════════════════════════════════
+//  TÍNH SẢN LƯỢNG
+// ══════════════════════════════════════════════
+function tinh(people, tongSL, tongTG){
+  const tongGio=people.reduce((s,p)=>s+p.gio,0);
+  if(!tongGio) return people;
+  const slMotGio=tongSL/tongGio;
+  const tgBQ=tongTG/people.length;
+  return people.map(p=>({
+    ...p,
+    tgQD:+((p.gio/tongTG)*tgBQ).toFixed(2),
+    sl:+( p.gio*slMotGio).toFixed(1)
+  }));
+}
+
+function tinhVaLuu(){
+  const ngay=document.getElementById('inp-ngay').value;
+  const maDon=document.getElementById('inp-madon').value.trim();
+  const maSP=document.getElementById('inp-masp').value.trim();
+  const tenSP=document.getElementById('inp-tensp').value.trim();
+  const sl=parseFloat(document.getElementById('inp-sl').value)||0;
+  const dg=parseFloat(document.getElementById('inp-dg').value)||0;
+  const tg=parseFloat(document.getElementById('inp-tg').value)||11;
+
+  if(!ngay){toast('⚠ Chưa chọn ngày!',true);return}
+  if(!sl){toast('⚠ Nhập số lượng!',true);return}
+
+  const people=getPeople();
+  if(!people.length){toast('⚠ Chưa có nhân viên!',true);return}
+
+  const results=tinh(people,sl,tg);
+  const db=loadDB();
+
+  db.donhang.push({
+    id:Date.now(), ngay, maDon, maSP, tenSP, sl, dg,
+    tongTien:+(sl*dg).toFixed(2), tg, soNguoi:people.length,
+    rows:results
+  });
+  db.donhang.sort((a,b)=>a.ngay.localeCompare(b.ngay));
+  saveDB(db);
+
+  showPreview(results, sl, tg);
+  toast('✓ Đã lưu đơn hàng ngày '+ngay);
+}
+
+function showPreview(results, tongSL, tongTG){
+  const area=document.getElementById('preview-area');
+  let html=`<div class="card"><div class="card-title">结果预览 / Kết quả</div>
+  <table class="result-table">
+  <thead><tr><th>Mã</th><th>Tên</th><th>Giờ làm</th><th>TG quy đổi</th><th>Sản lượng</th></tr></thead><tbody>`;
+  let sumSL=0;
+  results.forEach(p=>{
+    html+=`<tr><td>${p.ma}</td><td style="color:var(--muted)">${p.ten||'-'}</td>
+      <td>${p.gio}h</td><td style="color:var(--blue)">${p.tgQD}h</td>
+      <td>${p.sl.toLocaleString('vi')}</td></tr>`;
+    sumSL+=p.sl;
+  });
+  html+=`<tr class="total-row"><td>TỔNG</td><td></td><td></td><td></td><td>${Math.round(sumSL).toLocaleString('vi')}</td></tr>`;
+  html+=`</tbody></table></div>`;
+  area.innerHTML=html;
+}
+
+function resetNhap(){
+  ['inp-madon','inp-masp','inp-tensp','inp-sl','inp-dg'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('inp-tg').value='11';
+  document.getElementById('inp-ngay').value=todayStr();
+  document.getElementById('preview-area').innerHTML='';
+  loadNvRowsFromDB();
+}
+
+// ══════════════════════════════════════════════
+//  PAGE LỊCH SỬ
+// ══════════════════════════════════════════════
+function loadLichSu(){
+  const db=loadDB();
+  const thang=document.getElementById('filter-thang').value;
+  let dons=db.donhang;
+  if(thang) dons=dons.filter(d=>d.ngay.startsWith(thang));
+
+  const thisMonth=todayStr().slice(0,7);
+  const thisMonthDons=db.donhang.filter(d=>d.ngay.startsWith(thisMonth));
+  const ngaySet=new Set(thisMonthDons.map(d=>d.ngay));
+
+  document.getElementById('stat-ngay').textContent=[...new Set(dons.map(d=>d.ngay))].length;
+  document.getElementById('stat-don').textContent=dons.length;
+  document.getElementById('stat-sl').textContent=thisMonthDons.reduce((s,d)=>s+d.sl,0).toLocaleString('vi');
+  document.getElementById('stat-tt').textContent=thisMonthDons.reduce((s,d)=>s+d.tongTien,0).toLocaleString('vi');
+
+  const area=document.getElementById('hist-area');
+  if(!dons.length){area.innerHTML='<div class="empty">Chưa có dữ liệu</div>';return}
+
+  let html=`<table class="hist-table"><thead><tr>
+    <th><input type="checkbox" id="chk-all" onchange="toggleAll(this)"/> Chọn</th>
+    <th>Ngày</th><th>Mã đơn</th><th>Mã SP</th><th>Tên SP</th>
+    <th>SL</th><th>Đơn giá</th><th>Tổng tiền</th><th>Ca (h)</th><th>Nhân viên</th>
+  </tr></thead><tbody>`;
+  dons.slice().reverse().forEach(d=>{
+    const nv=d.rows.map(r=>r.ma).join(', ');
+    html+=`<tr data-id="${d.id}">
+      <td><input type="checkbox" class="chk-row" value="${d.id}"/></td>
+      <td class="td-ngay">${d.ngay}</td>
+      <td class="td-don">${d.maDon||'-'}</td>
+      <td>${d.maSP||'-'}</td>
+      <td>${d.tenSP||'-'}</td>
+      <td class="td-sl">${(d.sl||0).toLocaleString('vi')}</td>
+      <td>${(d.dg||0).toLocaleString('vi')}</td>
+      <td>${(d.tongTien||0).toLocaleString('vi')}</td>
+      <td>${d.tg}h</td>
+      <td style="color:var(--muted);font-size:11px">${nv}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table>`;
+  area.innerHTML=html;
+}
+
+function toggleAll(chk){
+  document.querySelectorAll('.chk-row').forEach(c=>c.checked=chk.checked);
+}
+
+function xoaDaChon(){
+  const ids=[...document.querySelectorAll('.chk-row:checked')].map(c=>+c.value);
+  if(!ids.length){toast('Chưa chọn dòng nào!',true);return}
+  if(!confirm(`Xóa ${ids.length} đơn hàng?`)) return;
+  const db=loadDB();
+  db.donhang=db.donhang.filter(d=>!ids.includes(d.id));
+  saveDB(db);
+  loadLichSu();
+  toast(`✓ Đã xóa ${ids.length} đơn`);
+}
+
+// ══════════════════════════════════════════════
+//  PAGE NHÂN VIÊN
+// ══════════════════════════════════════════════
+let selectedNV=new Set();
+
+function loadNVManage(){
+  const db=loadDB();
+  const area=document.getElementById('nv-manage-area');
+  if(!db.nhanvien.length){area.innerHTML='<div class="empty">Chưa có nhân viên</div>';return}
+  let html=`<table class="hist-table"><thead><tr>
+    <th><input type="checkbox" onchange="toggleAllNV(this)"/> Chọn</th>
+    <th>Mã / 编码</th><th>Tên / 姓名</th><th>Thứ tự / 顺序</th>
+  </tr></thead><tbody>`;
+  db.nhanvien.sort((a,b)=>a.tt-b.tt).forEach(nv=>{
+    html+=`<tr><td><input type="checkbox" class="chk-nv" value="${nv.ma}"/></td>
+      <td style="color:var(--yellow);font-weight:600">${nv.ma}</td>
+      <td>${nv.ten}</td><td>${nv.tt}</td></tr>`;
+  });
+  html+=`</tbody></table>`;
+  area.innerHTML=html;
+}
+
+function toggleAllNV(chk){
+  document.querySelectorAll('.chk-nv').forEach(c=>c.checked=chk.checked);
+}
+
+function themNV(){
+  const ma=document.getElementById('nv-ma').value.trim();
+  const ten=document.getElementById('nv-ten').value.trim();
+  const tt=parseInt(document.getElementById('nv-tt').value)||99;
+  if(!ma){toast('Nhập mã nhân viên!',true);return}
+  const db=loadDB();
+  if(db.nhanvien.find(n=>n.ma===ma)){toast('Mã đã tồn tại!',true);return}
+  db.nhanvien.push({ma,ten,tt});
+  saveDB(db);
+  loadNVManage();
+  loadNvRowsFromDB();
+  ['nv-ma','nv-ten','nv-tt'].forEach(id=>document.getElementById(id).value='');
+  toast('✓ Đã thêm nhân viên '+ma);
+}
+
+function xoaNVDaChon(){
+  const mas=[...document.querySelectorAll('.chk-nv:checked')].map(c=>c.value);
+  if(!mas.length){toast('Chưa chọn ai!',true);return}
+  if(!confirm(`Xóa ${mas.length} nhân viên?`)) return;
+  const db=loadDB();
+  db.nhanvien=db.nhanvien.filter(n=>!mas.includes(n.ma));
+  saveDB(db);
+  loadNVManage();
+  loadNvRowsFromDB();
+  toast(`✓ Đã xóa ${mas.length} nhân viên`);
+}
+
+// ══════════════════════════════════════════════
+//  PAGE XUẤT EXCEL
+// ══════════════════════════════════════════════
+function loadXuatMonths(){
+  const db=loadDB();
+  const months=[...new Set(db.donhang.map(d=>d.ngay.slice(0,7)))].sort().reverse();
+  const sel=document.getElementById('xuat-thang');
+  sel.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('')||'<option value="">-- Không có dữ liệu --</option>';
+}
+
+function xuatExcel(){
+  const thang=document.getElementById('xuat-thang').value;
+  if(!thang){toast('Chọn tháng trước!',true);return}
+  const db=loadDB();
+  const dons=db.donhang.filter(d=>d.ngay.startsWith(thang));
+  if(!dons.length){toast('Không có dữ liệu tháng này!',true);return}
+
+  const allMa=[...new Set(db.nhanvien.sort((a,b)=>a.tt-b.tt).map(n=>n.ma))];
+  dons.forEach(d=>d.rows.forEach(r=>{if(!allMa.includes(r.ma))allMa.push(r.ma)}));
+
+  const wb=XLSX.utils.book_new();
+
+  // ── Sheet 1: Tổng hợp (format bảng gốc) ──
+  const [year,month]=thang.split('-').map(Number);
+  const daysInMonth=new Date(year,month,0).getDate();
+
+  // Group theo ngày
+  const byDay={};
+  dons.forEach(d=>{
+    const day=parseInt(d.ngay.split('-')[2]);
+    if(!byDay[day]) byDay[day]=[];
+    byDay[day].push(d);
+  });
+
+  // Build rows
+  const sheetData=[];
+
+  // Row 1: header 时间 / 数量
+  const r1=new Array(10+allMa.length*2+2).fill('');
+  r1[10]='时间 / Thời gian';
+  r1[10+allMa.length+1]='数量（个）/ Số lượng';
+  sheetData.push(r1);
+
+  // Row 2: column headers
+  const r2=['日期\nNgày','订单号\nMã đơn','产品编码\nMã SP','名称\ntên',
+    '数量\nSố lượng','单价\nĐơn giá','金额\nSố tiền','总时间\nTổng TG','人数','Số người',
+    ...allMa,...[''],...allMa];
+  sheetData.push(r2);
+
+  // Totals
+  const totTG={}, totSL={};
+  allMa.forEach(m=>{totTG[m]=0;totSL[m]=0});
+  let grandTG=0;
+
+  for(let day=1;day<=daysInMonth;day++){
+    if(byDay[day]){
+      byDay[day].forEach(d=>{
+        const rowArr=[
+          `${month}/${day}`, d.maDon||'', d.maSP||'', d.tenSP||'',
+          d.sl||0, d.dg||0, d.tongTien||0, d.tg||0, d.soNguoi||0, d.soNguoi||0
+        ];
+        allMa.forEach(ma=>{
+          const r=d.rows.find(x=>x.ma===ma);
+          rowArr.push(r?r.tgQD:0);
+        });
+        rowArr.push(''); // cột trống
+        allMa.forEach(ma=>{
+          const r=d.rows.find(x=>x.ma===ma);
+          rowArr.push(r?Math.round(r.sl):0);
+          totTG[ma]+=(r?r.tgQD:0);
+          totSL[ma]+=(r?r.sl:0);
+        });
+        grandTG+=d.tg||0;
+        sheetData.push(rowArr);
+      });
+    } else {
+      const emptyRow=[`${month}/${day}`,'','','',0,0,0,0,0,0,
+        ...allMa.map(()=>0),'', ...allMa.map(()=>0)];
+      sheetData.push(emptyRow);
+    }
+  }
+
+  // Dòng tổng
+  const totRow=['TỔNG','','','','','','',grandTG,'','',
+    ...allMa.map(m=>+totTG[m].toFixed(2)),'',
+    ...allMa.map(m=>Math.round(totSL[m]))];
+  sheetData.push(totRow);
+
+  const ws1=XLSX.utils.aoa_to_sheet(sheetData);
+
+  // Style merge cells
+  if(!ws1['!merges']) ws1['!merges']=[];
+  // Merge 时间 header
+  ws1['!merges'].push({s:{r:0,c:10},e:{r:0,c:10+allMa.length-1}});
+  // Merge 数量 header
+  ws1['!merges'].push({s:{r:0,c:11+allMa.length},e:{r:0,c:11+allMa.length*2-1}});
+
+  // Col widths
+  const wscols=[{wch:10},{wch:14},{wch:14},{wch:20},{wch:10},{wch:9},{wch:11},{wch:10},{wch:8},{wch:8}];
+  allMa.forEach(()=>{wscols.push({wch:9})});
+  wscols.push({wch:2});
+  allMa.forEach(()=>{wscols.push({wch:9})});
+  ws1['!cols']=wscols;
+  ws1['!rows']=[{hpt:18},{hpt:40}];
+
+  XLSX.utils.book_append_sheet(wb,ws1,`Tổng hợp ${thang}`);
+
+  // ── Sheet 2: Chi tiết ──
+  const ws2Data=[['Ngày','Mã đơn','Mã SP','Tên SP','Mã NV','Tên NV','Giờ làm','TG quy đổi','Sản lượng','Tổng SL','Đơn giá','Tổng tiền']];
+  dons.forEach(d=>{
+    d.rows.forEach(r=>{
+      const nvInfo=db.nhanvien.find(n=>n.ma===r.ma);
+      ws2Data.push([d.ngay,d.maDon||'',d.maSP||'',d.tenSP||'',
+        r.ma, nvInfo?nvInfo.ten:'', r.gio, r.tgQD, Math.round(r.sl),
+        d.sl, d.dg, d.tongTien]);
+    });
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(ws2Data);
+  ws2['!cols']=[12,14,14,22,8,16,10,12,12,12,10,12].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb,ws2,'Chi tiết');
+
+  XLSX.writeFile(wb,`SanLuong_${thang}.xlsx`);
+  toast(`✓ Đã xuất SanLuong_${thang}.xlsx`);
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+function todayStr(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function init(){
+  initDB();
+  document.getElementById('inp-ngay').value=todayStr();
+  const thisMonth=todayStr().slice(0,7);
+  document.getElementById('filter-thang').value=thisMonth;
+  loadNvRowsFromDB();
+}
+
+init();
+</script>
+</body>
+</html>
